@@ -27,8 +27,6 @@ namespace Microsoft.NET.Build.Tests
                 .WithSource()
                 .Restore(Log, "NETCoreCppCliTest.sln");
 
-            WorkaroundSDKBlockOnAssetsJsonExistence(testAsset);
-
             // build projects separately with BuildProjectReferences=false to simulate VS build behavior
             new BuildCommand(Log, Path.Combine(testAsset.TestRoot, "NETCoreCppCliTest"))
                 .Execute("-p:Platform=x64")
@@ -53,13 +51,18 @@ namespace Microsoft.NET.Build.Tests
             File.Exists(expectedIjwhost).Should().BeTrue();
         }
 
-        private static void WorkaroundSDKBlockOnAssetsJsonExistence(TestAsset testAsset)
+        [FullMSBuildOnlyFact]
+        public void Given_no_restore_It_builds_cpp_project()
         {
-            var lockFile = new LockFile();
-            lockFile.Targets.Add(new LockFileTarget { TargetFramework = NuGetFramework.Parse(".NETCoreApp,Version=v3.0") });
+            var testAsset = _testAssetsManager
+                .CopyTestAsset("NetCoreCsharpAppReferenceCppCliLib")
+                .WithSource();
 
-            var objDirectory = Directory.CreateDirectory(Path.Combine(testAsset.TestRoot, "NETCoreCppCliTest", "obj"));
-            new LockFileFormat().Write(objDirectory.File("project.assets.json").FullName, lockFile);
+            // build projects separately with BuildProjectReferences=false to simulate VS build behavior
+            new BuildCommand(Log, Path.Combine(testAsset.TestRoot, "NETCoreCppCliTest"))
+                .Execute("-p:Platform=x64")
+                .Should()
+                .Pass();
         }
     }
 }
