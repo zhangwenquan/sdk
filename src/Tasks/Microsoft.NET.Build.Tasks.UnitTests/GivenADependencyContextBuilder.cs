@@ -50,6 +50,7 @@ namespace Microsoft.NET.Build.Tasks.UnitTests
                 ReferenceInfo.CreateDirectReferenceInfos(
                     referencePaths ?? new ITaskItem[] { },
                     referenceSatellitePaths ?? new ITaskItem[] { },
+                    projectReferenceExistedInProjectContext: false,
                     i => true);
 
             ProjectContext projectContext = lockFile.CreateProjectContext(
@@ -64,7 +65,7 @@ namespace Microsoft.NET.Build.Tasks.UnitTests
                 resolvedNuGetFiles = Array.Empty<ResolvedFile>();
             }
 
-            DependencyContext dependencyContext = new DependencyContextBuilder(mainProject, projectContext, includeRuntimeFileVersions: false)
+            DependencyContext dependencyContext = new DependencyContextBuilder(mainProject, includeRuntimeFileVersions: false, projectContext: projectContext)
                 .WithDirectReferences(directReferences)
                 .WithCompilationOptions(compilationOptions)
                 .WithResolvedNuGetFiles((ResolvedFile[]) resolvedNuGetFiles)
@@ -261,7 +262,7 @@ namespace Microsoft.NET.Build.Tasks.UnitTests
                 useCompilationOptions ? CreateCompilationOptions() :
                 null;
 
-            DependencyContext dependencyContext = new DependencyContextBuilder(mainProject, projectContext, includeRuntimeFileVersions: false)
+            DependencyContext dependencyContext = new DependencyContextBuilder(mainProject, includeRuntimeFileVersions: false, projectContext: projectContext)
                 .WithReferenceAssemblies(ReferenceInfo.CreateReferenceInfos(referencePaths))
                 .WithCompilationOptions(compilationOptions)
                 .Build();

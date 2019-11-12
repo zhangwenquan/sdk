@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Microsoft.Build.Framework;
 using Microsoft.Extensions.DependencyModel;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -26,16 +27,16 @@ namespace Microsoft.NET.Build.Tasks
         private string _referenceAssembliesPath;
         private Dictionary<PackageIdentity, string> _filteredPackages;
         private bool _includeMainProjectInDepsFile = true;
-        private Dictionary<string, DependencyLibrary> _dependencyLibraries;
-        private Dictionary<string, List<LibraryDependency>> _libraryDependencies;
-        private List<string> _mainProjectDependencies;
-        private HashSet<PackageIdentity> _packagesToBeFiltered;
-        private bool _isFrameworkDependent;
-        private string _platformLibrary;
-        private string _dotnetFrameworkName;
-        private string _runtimeIdentifier;
-        private bool _isPortable;
-        private HashSet<string> _usedLibraryNames;
+        private readonly Dictionary<string, DependencyLibrary> _dependencyLibraries;
+        private readonly Dictionary<string, List<LibraryDependency>> _libraryDependencies;
+        private readonly List<string> _mainProjectDependencies;
+        private readonly HashSet<PackageIdentity> _packagesToBeFiltered;
+        private readonly bool _isFrameworkDependent;
+        private readonly string _platformLibrary;
+        private readonly string _dotnetFrameworkName;
+        private readonly string _runtimeIdentifier;
+        private readonly bool _isPortable;
+        private readonly HashSet<string> _usedLibraryNames;
 
         private Dictionary<ReferenceInfo, string> _referenceLibraryNames;
 
@@ -44,7 +45,7 @@ namespace Microsoft.NET.Build.Tasks
 
         private const string NetCorePlatformLibrary = "Microsoft.NETCore.App";
 
-        public DependencyContextBuilder(SingleProjectInfo mainProjectInfo, ProjectContext projectContext, bool includeRuntimeFileVersions)
+        public DependencyContextBuilder(SingleProjectInfo mainProjectInfo, bool includeRuntimeFileVersions, ProjectContext projectContext) // TODO wul no check in just make a separate constructor
         {
             _mainProjectInfo = mainProjectInfo;
             _includeRuntimeFileVersions = includeRuntimeFileVersions;
@@ -62,6 +63,7 @@ namespace Microsoft.NET.Build.Tasks
                         dependencyLibrary.Sha512 = library.Sha512;
                         dependencyLibrary.Path = library.Path;
                         dependencyLibrary.MSBuildProject = library.MSBuildProject;
+                        dependencyLibrary.AssembliesPath = lockFileTargetLibrary.RuntimeAssemblies.Select(r => r.Path).ToArray();
                     }
 
                     return dependencyLibrary;
@@ -88,6 +90,36 @@ namespace Microsoft.NET.Build.Tasks
             _isPortable = projectContext.IsPortable;
 
             _usedLibraryNames = new HashSet<string>(_dependencyLibraries.Keys, StringComparer.OrdinalIgnoreCase);
+        }
+
+        public DependencyContextBuilder(
+            SingleProjectInfo mainProjectInfo,
+            bool includeRuntimeFileVersions,
+            ITaskItem[] runtimeFrameworks,
+            string runtimeIdentifier,
+            bool isSelfContained,
+            string platformLibraryName,
+            string targetFramework)
+        {
+            _mainProjectInfo = mainProjectInfo;
+            _includeRuntimeFileVersions = includeRuntimeFileVersions;
+
+            _isFrameworkDependent = LockFileExtensions.IsFrameworkDependent(
+                runtimeFrameworks,
+                isSelfContained,
+                runtimeIdentifier,
+                string.IsNullOrWhiteSpace(platformLibraryName));
+            _platformLibrary = platformLibraryName;
+            _dotnetFrameworkName = targetFramework;
+            _runtimeIdentifier = runtimeIdentifier;
+
+            _dependencyLibraries = new Dictionary<string, DependencyLibrary>();
+            _libraryDependencies = new Dictionary<string, List<LibraryDependency>>();
+            _mainProjectDependencies = new List<string>();
+            _packagesToBeFiltered = null;
+
+            _isPortable = _isFrameworkDependent && string.IsNullOrEmpty(_runtimeIdentifier);
+            _usedLibraryNames = new HashSet<string>();
         }
 
         private bool IncludeCompilationLibraries => _compilationOptions != null;
@@ -795,6 +827,7 @@ namespace Microsoft.NET.Build.Tasks
             public string Sha512 { get; set; }
             public string Path { get; set; }
             public string MSBuildProject { get; set; }
+            public string[] AssembliesPath { get; set; }
 
             public bool ExcludeFromRuntime { get; set; }
 
